@@ -1,0 +1,11 @@
+const express = require("express");
+const { authMiddleware } = require("../middleware/authMiddleware");
+const roleMiddleware = require("../middleware/roleMiddleware");
+const { listUsers, updateUserStatus, updateUserRole, deleteUser } = require("../controllers/adminUserController");
+const router = express.Router();
+router.use(authMiddleware, roleMiddleware("admin"));
+router.get("/", listUsers);
+router.patch("/:id/status", updateUserStatus);
+router.patch("/:id/role", updateUserRole);
+router.delete("/:id", deleteUser);
+module.exports = router;

@@ -1,0 +1,264 @@
+openapi: 3.0.3
+info:
+  title: EventSphere Management API
+  version: 0.1.0
+  description: >-
+    Starter API inventory for the current repository. The project mounts endpoints
+    under /api (not /api/v1). Request/response schemas must be reconciled against
+    controller implementations before this is treated as a complete contract.
+servers:
+  - url: http://localhost:5000/api
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ApiError:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        message: { type: string }
+    Notification:
+      type: object
+      required: [recipient, type, title, message]
+      properties:
+        _id: { type: string }
+        recipient: { type: string }
+        sender: { type: string, nullable: true }
+        type:
+          type: string
+          enum: [application_approved, application_rejected, new_application, new_message, session_reminder, session_update, session_cancelled]
+        title: { type: string }
+        message: { type: string }
+        link: { type: string, nullable: true }
+        isRead: { type: boolean }
+        createdAt: { type: string, format: date-time }
+paths:
+  /health:
+    get:
+      security: []
+      summary: API and database health
+      responses:
+        '200':
+          description: Health status
+  /auth/signup:
+    post:
+      security: []
+      summary: Register account
+      responses:
+        '201': { description: Account created (confirm exact status in controller) }
+        '400': { description: Validation or registration error }
+  /auth/signin:
+    post:
+      security: []
+      summary: Sign in
+      responses:
+        '200': { description: Authenticated user and tokens (confirm response schema in controller) }
+        '401': { description: Invalid credentials }
+  /auth/refresh:
+    post:
+      security: []
+      summary: Refresh access token
+      responses:
+        '200': { description: Token refreshed }
+        '401': { description: Refresh token invalid or expired }
+  /auth/logout:
+    post:
+      security: []
+      summary: Invalidate refresh token
+      responses:
+        '200': { description: Logged out }
+  /notifications:
+    get:
+      summary: Get current user's notifications and unread count
+      responses:
+        '200':
+          description: Notification collection
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  count: { type: integer }
+                  unreadCount: { type: integer }
+                  notifications:
+                    type: array
+                    items: { $ref: '#/components/schemas/Notification' }
+        '401': { description: Authentication required }
+  /notifications/{id}/read:
+    patch:
+      summary: Mark one notification read
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Notification marked read }
+        '404': { description: Notification not found for current user }
+  /notifications/read-all:
+    patch:
+      summary: Mark all current user's notifications read
+      responses:
+        '200': { description: Notifications marked read }
+  /messages/contacts:
+    get:
+      summary: List permitted message contacts
+      responses:
+        '200': { description: Contacts returned }
+  /messages/conversations:
+    get:
+      summary: List current user's conversations
+      responses:
+        '200': { description: Conversations returned }
+  /messages/conversation/{userId}:
+    get:
+      summary: Get conversation with a user
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Conversation history }
+        '403': { description: Messaging not permitted }
+  /messages:
+    post:
+      summary: Send a message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to, text]
+              properties:
+                to: { type: string }
+                text: { type: string, maxLength: 3000 }
+                kind: { type: string, enum: [text, contact, appointment] }
+                meta: { type: object }
+      responses:
+        '201': { description: Message created (confirm exact status in controller) }
+        '400': { description: Invalid message payload }
+        '403': { description: Messaging not permitted }
+
+  /analytics/public:
+    get:
+      security: []
+      summary: Read aggregate public platform statistics
+      responses:
+        '200': { description: Aggregate expo, attendee, exhibitor, session and registration counts }
+  /exhibitors:
+    get:
+      security: []
+      summary: List active exhibitors who opted into the public directory
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 24 }
+        - in: query
+          name: industry
+          schema: { type: string }
+      responses:
+        '200': { description: Public exhibitor directory }
+  /applications/{id}:
+    delete:
+      summary: Withdraw the current exhibitor's pending application
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Application withdrawn }
+        '404': { description: Pending application not found }
+  /booths/{id}/showcase:
+    patch:
+      summary: Update showcase for a booth held by the current exhibitor
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [showcase]
+              properties:
+                showcase: { type: object, additionalProperties: true }
+      responses:
+        '200': { description: Booth showcase saved }
+        '404': { description: Active booth allocation not found }
+  /booths/{id}/view:
+    post:
+      security: []
+      summary: Increment aggregate public booth profile views
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Updated aggregate visit count }
+  /expo-registrations/{expoId}/register:
+    post:
+      summary: Register attendee for an expo and issue a ticket code
+      parameters:
+        - in: path
+          name: expoId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ticket: { type: string, enum: [Standard, Premium, VIP], default: Standard }
+      responses:
+        '201': { description: Registration created with ticket code }
+        '409': { description: Duplicate registration or capacity full }
+  /expo-registrations/check-in:
+    post:
+      summary: Check in an attendee using the one-time ticket code (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ticketCode]
+              properties:
+                ticketCode: { type: string, pattern: '^ES-[A-F0-9]{10}$' }
+      responses:
+        '200': { description: Attendee checked in }
+        '404': { description: Ticket not found }
+        '409': { description: Ticket cancelled or already checked in }
+  /session-registrations/{sessionId}/bookmark:
+    post:
+      summary: Bookmark a published session (attendee only)
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema: { type: string }
+      responses:
+        '201': { description: Session bookmarked }
+        '409': { description: Session already registered }
+  /notifications/generate-reminders:
+    post:
+      summary: Generate deduplicated reminders for sessions starting within 24 hours (attendee only)
+      responses:
+        '200': { description: Number of reminders generated or already present }

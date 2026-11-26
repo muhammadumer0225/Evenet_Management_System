@@ -1,0 +1,90 @@
+EventSphere implementation update
+
+Completed in this source update:
+- Added persistent ticket codes, checked-in timestamps and admin check-in ownership fields to ExpoRegistration.
+- Added attendee-owned registration verification by Mongo registration ID or ticket code.
+- Added admin check-in API and dashboard page with manual lookup and optional browser QR scanning.
+- Replaced the visual pseudo-QR on attendee passes with the existing QR encoder and persistent ticket code.
+- Added a one-time migration for ticket codes, legacy session registration types and Expo registered counts.
+- Added registeredCount to Expo and updated it on free registration, demo-payment completion and cancellation.
+- Added the 70% simulated Premium/VIP refund record after the fixed 30% deduction. Checked-in tickets cannot be cancelled; Expo cancellation also cancels the attendee's linked session registrations.
+- Added session registration/bookmark type support and API-backed register/bookmark/cancel actions. The attendee agenda, public schedule and admin schedule editor now use backend data.
+- Restored Expo daily opening/closing hours and IANA timezone fields with validation; session creation/update is checked against Expo-local dates and daily hours, and session notifications use Expo-local time formatting.
+- Restored full venue name/address/city/country fields and registration-deadline validation (deadline must be on or before the Expo start date).
+- Restored optional single Expo cover-image upload (JPG/PNG/WebP, max 5 MB) with preview, replace and remove controls; upload validation checks actual file signatures and uses a stable backend uploads directory.
+- Added persistent booth zone labels and Admin zone selection; corrected percentage-based booth positions to the 5x8 floor-plan grid mapping.
+- Added admin-only Expo analytics PDF export alongside CSV export.
+- Improved My Agenda date/time handling to use stored session instants for clash detection and UTC calendar export, independent of the viewer's browser timezone.
+- Reworked the content seed to insert only sample Expos, Speakers, Booths and Sessions using an existing admin account; it never creates, updates or deletes User accounts or changes passwords/roles.
+- Added persistent notifications for applications, announcements, feedback updates, session updates/cancellations and deduplicated session reminders. Started the reminder scheduler after MongoDB connects; notification bell and page now use the backend and synchronize read state. Application decision emails now include Expo dates, daily hours/timezone, full venue, application status, booth size/assignment, remarks and next steps.
+- Added message emoji picker, delivered/read timestamps, real-time status events and backend unread-count badges; normalized message IDs and profile IDs for frontend use.
+- Linked optional attendee feedback to an active Expo registration and notified attendees when admins update feedback.
+- Improved chatbot answer quality with role-specific, up-to-date EventSphere guidance, direct-first answers, concise step-by-step instructions, Roman Urdu language matching, explicit uncertainty and privacy/safety rules. Preserved the existing provider integration and AI request limiter.
+- Added a rate-limited, authenticated chatbot readiness endpoint that reports configuration and recent provider health without exposing credentials. The widget no longer claims “Online” without evidence.
+- Added per-account local conversation persistence (last 30 messages), corrected retry history, UUID fallback, safe Markdown/link rendering, keyboard focus trapping, Escape-to-close, screen-reader live regions, and responsive tablet/mobile keyboard sizing.
+- Removed unused local-only session create/update/delete and Expo registration helpers that were replaced by backend APIs.
+- Configured npm test scripts and added coverage/test scripts.
+
+Verification performed:
+- Backend tests: 37 passing, 2 skipped because Mongoose dependencies are not installed in this workspace.
+- Frontend unit tests: 21/21 passing.
+- All 100 backend JavaScript files pass `node --check`.
+- All 44 frontend JS/JSX source files parse; all 197 relative imports resolve.
+- Vite production build not run because frontend dependencies are not installed in this workspace. Run `npm ci` and `npm run build` in the Windows project environment.
+- MongoDB, SMTP, two-account Socket.IO, QR camera, payment/refund persistence and full browser E2E flows require the user's configured local services and have not been live-tested here.
+
+Required first-run step for an existing database:
+1. Back up MongoDB.
+2. In backend, run `npm run migrate:tickets` only if the existing database has not already had the ticket-code migration applied.
+3. Start backend and frontend, then follow docs/QA-SECURITY-CHECKLIST.md.
+4. `npm run seed:demo` is content-only and requires an existing admin; it does not touch User records. Do not run the separate `npm run seed` command unless you intentionally want its admin-account operation.
+
+Not implemented in this update:
+- Message image/document/voice attachments (not present in the supplied code; intentionally not added).
+- Real JazzCash/Easypaisa gateway integration (kept out of scope; demo payment remains).
+
+
+Additional deployment and support hardening (latest implementation batch):
+- Socket.IO now connects to the current frontend origin by default; Vite and Nginx proxy WebSocket traffic to the backend.
+- REST and Socket.IO CORS share the configured comma-separated FRONTEND_URL allowlist, with a safe local-development fallback when the setting is blank.
+- Docker Compose accepts FRONTEND_URL from the deployment environment instead of forcing localhost:8080. Set it to the exact public browser origin for deployment.
+- When the REST client rotates an access token, an authenticated Socket.IO connection is re-established so its handshake uses the new token.
+- Attendee and guest chatbot questions about verifying a registration ID or ticket code now have a built-in role-appropriate answer and do not depend on the external AI provider.
+- Regression coverage after this batch: backend 93 passed, 2 skipped, 0 failed; frontend 74 passed, 0 failed. Backend coverage run: 86.90% lines, 78.90% branches and 88.83% functions. Frontend production build could not run because Vite dependencies are not installed in this extracted workspace.
+
+
+Consolidated workflow/integration review — 2026-11-24:
+- Re-ran the complete backend suite: 95 total, 93 passed, 0 failed, 2 skipped (Mongoose-dependent).
+- Re-ran the complete frontend unit suite: 74 passed, 0 failed.
+- Re-ran backend coverage: 86.94% lines, 78.96% branches, 88.89% functions.
+- Reviewed Admin Expo form component identity/Field rendering, exhibitor application details and neighbour flows, admin analytics, exhibitor analytics, chatbot failure recovery, Nginx WebSocket/API/upload proxies and Docker origin configuration. Existing source and regression checks cover these workflows; no unsupported source-only claim was promoted to live integration success.
+- Updated requirements and test-run documentation to replace stale test counts and clarify outstanding live acceptance.
+- No database migration, seed, live service, or original local project was touched.
+
+
+Exhibitor application visibility and cleanup pass:
+- Clarified the exhibitor navigation label and added an obvious Find expos / Apply for a booth dashboard action.
+- Find Expos now refreshes its published Expo list on realtime updates, loads the exhibitor's saved applications and company profile, shows a View expo action, and directs exhibitors to create the required company profile before application submission. Existing applications link to their status instead of inviting duplicate submissions.
+- Expo detail now checks the signed-in exhibitor's persisted application list rather than the local demo store when choosing its Apply / Application status CTA.
+- Removed the unreferenced legacy user middleware and the unused JazzCash/Easypaisa payment-preparation endpoint, gateway adapter and gateway config. Kept the demo-payment flow and historical gateway enum values for compatibility. Demo payment completion is now attendee-role restricted.
+- Preserved uploads, seed scripts, migration/backup scripts, and local store/seed modules because they remain referenced or may contain user data.
+- Added exhibitor-application discovery and payment-cleanup regression tests.
+- Hardened booth reservation on the backend: the exhibitor must have an approved application for the booth's Expo, the application must not already have a booth, and the reservation is linked back to the application. A failed link releases the booth to avoid orphaned reservations.
+
+
+Final verification for the exhibitor workflow/security cleanup pass:
+- Backend `npm test`: 98 total, 96 passed, 0 failed, 2 skipped (Mongoose-dependent).
+- Frontend `npm run test:unit`: 78 passed, 0 failed.
+- Backend coverage: 87.16% lines, 79.26% branches, 89.12% functions.
+- Backend JavaScript syntax check passed; frontend JSX/JS syntax transpile passed for 51 files.
+- Live browser/MongoDB acceptance and frontend production build remain unverified in this workspace.
+
+2026-11-25 implementation batch:
+- Added role-safe deterministic chatbot answers for EventSphere overview and common Admin questions.
+- Added authenticated profile picture upload/change in Account Settings (JPG/PNG/WebP, max 5 MB, server-side signature validation) and persistent User.profileImage.
+- Added message Delete for Me, sender-only Delete for Everyone, clear-current-user-history, and hide-chat-for-current-user endpoints; introduced Conversation records to preserve empty threads and clean them up when a user account is deleted.
+- Fixed message auto-scroll to remain inside the conversation pane and explicitly prevent Enter's default behavior.
+- Redesigned announcement cards without inventing Draft support because the Announcement model currently has no status field.
+- Added server-side feedback failure logging; live 500 root cause still requires retest against the user's MongoDB.
+- Replaced deprecated Mongoose `new: true` query options in controller/service code.
+- Verification: backend 104 pass / 2 skipped / 0 fail; frontend unit 83 pass / 0 fail; JSX syntax checks pass. Vite production build unavailable because frontend dependencies could not be installed in this environment.
