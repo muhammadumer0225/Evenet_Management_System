@@ -34,6 +34,7 @@ const paymentRoutes = require("./routes/paymentRoutes");
 const { securityHeaders } = require("./middleware/securityMiddleware");
 const { sanitizeInput } = require("./middleware/sanitizeInput");
 const app = express();
+app.set('trust proxy', 1);
 
 // HTTP Server
 const httpServer = http.createServer(app);
