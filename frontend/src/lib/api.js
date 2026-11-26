@@ -10,6 +10,9 @@ import { genBooths, hashPw} from './seed';
 import { uid, ymd, isEmail } from './utils';
 import { normalizeUser } from './normalizers';
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const apiUrl = (path) => `${API_BASE_URL}${path}`;
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export const SESSION_KEY = 'eventsphere.session';
 
@@ -51,7 +54,7 @@ const publicUser = (u) => {
 /* ---------------- Auth ---------------- */
 
 export async function login(email, password) {
-  const response = await fetch('/api/auth/signin', {
+  const response = await fetch(apiUrl('/api/auth/signin'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -87,7 +90,7 @@ export async function refreshAccessToken() {
     throw new Error('Refresh token not found. Please login again.');
   }
 
-  const response = await fetch('/api/auth/refresh', {
+  const response = await fetch(apiUrl('/api/auth/refresh'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -112,7 +115,7 @@ export async function apiRequest(url, options = {}) {
   let token = localStorage.getItem('eventsphere.token');
 
   const makeRequest = (accessToken) => {
-    return fetch(url, {
+    return fetch(apiUrl(url), {
       ...options,
       headers: {
         ...options.headers,
@@ -908,7 +911,7 @@ export async function register({
   phone,
   orgCode,
 }) {
-  const response = await fetch('/api/auth/signup', {
+  const response = await fetch(apiUrl('/api/auth/signup'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -939,7 +942,7 @@ export async function logout() {
   const refreshToken = localStorage.getItem('eventsphere.refreshToken');
 
   try {
-    await fetch('/api/auth/logout', {
+    await fetch(apiUrl('/api/auth/logout'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -963,7 +966,7 @@ export async function requestPasswordReset(email) {
     throw new Error('Please enter a valid email address.');
   }
 
-  const response = await fetch('/api/auth/forgot-password', {
+  const response = await fetch(apiUrl('/api/auth/forgot-password'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -994,7 +997,7 @@ export async function resetPassword(token, password) {
     throw new Error('Password must be at least 8 characters.');
   }
 
-  const response = await fetch('/api/auth/reset-password', {
+  const response = await fetch(apiUrl('/api/auth/reset-password'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
