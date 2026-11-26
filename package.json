@@ -5,6 +5,6 @@
   "private": true,
   "workspaces": ["backend"],
   "scripts": {
-    "start": "npm --workspace backend start"
+    "start": "node backend/server.js"
   }
 }
